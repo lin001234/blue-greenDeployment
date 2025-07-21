@@ -1,0 +1,10 @@
+- name: Running Docker-Compose
+  hosts: all
+  become: true
+  vars: 
+    color: "{{ color }}"
+  roles:
+  - role: base
+    tags: base
+  - role: deploy
+    tags: deploy

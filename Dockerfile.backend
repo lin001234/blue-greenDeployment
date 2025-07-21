@@ -1,0 +1,30 @@
+# variable BRANCH that can change
+ARG BRANCH=main
+FROM node:22-alpine AS builder
+
+#Create and set working dir
+WORKDIR /app
+
+# Install git
+RUN apk add --no-cache git
+
+#Use blob and sparse to clone just targer dir, as sparse clone entire repo
+RUN git clone --filter=blob:none --sparse --depth=1 --single-branch --branch ${BRANCH} https://github.com/lin001234/your-repo.git . && \
+    git sparse-checkout set app/backend
+
+WORKDIR /app/backend
+
+#Install production dependencies
+RUN npm ci --only=production
+
+FROM node:22-alpine AS prod
+WORKDIR /app
+
+COPY --from=builder /app/backend /app
+# Set environment to production to enable optimization and skip devDependencies
+ENV NODE_ENV=production
+#Expose ports (Express+socket.io)
+EXPOSE 3000
+
+#Start server
+CMD ["npm","start"]

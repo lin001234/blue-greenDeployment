@@ -1,0 +1,64 @@
+services:
+  backend:
+    image: star_swapper-backend
+    pull_policy: never
+    container_name: star_swapper-backend
+    build:
+      context: ./app/backend
+      dockerfile: Dockerfile
+      #By specifying target: prod, Docker will only build up to the prod stage, skipping earlier stages (like build). This can save time and resources if you only need the final, production-ready image.
+      target: prod
+    #ports:
+    #- "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./app/backend/.env
+    restart: unless-stopped
+    networks:
+      - app-network
+  
+  frontend:
+    image: star_swapper-frontend
+    pull_policy: never
+    container_name: star_swapper-frontend
+    build:
+      context: ./app/frontend
+      dockerfile: Dockerfile
+      target: prod
+      args:
+        VITE_BACKEND_URL: http://localhost
+        # change to vm public address in deployment
+    #ports:
+    #-  "5173:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx-proxy
+    container_name: nginx-proxy
+    build:
+      context: ./app/proxy
+      dockerfile: Dockerfile
+    ports:
+      - "443:443"
+    volumes:
+      - /mnt/c/Users/khant/nginx-certs:/nginx-certs #Need to add cert using ansible
+      - /home/azureuser/nginx.conf:/etc/nginx/nginx.conf
+    environment:
+      - color=blue
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge

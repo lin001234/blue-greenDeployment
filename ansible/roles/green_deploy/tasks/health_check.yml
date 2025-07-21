@@ -1,0 +1,21 @@
+---
+- name: Check backend health
+  uri:
+    url: https://localhost/api/health
+    return_content: yes
+    status_code: 200
+  register: backend_health
+  ignore_errors: yes
+
+- name: Check frontend health
+  uri:
+    url: https://localhost
+    return_content: yes
+    status_code: 200
+  register: frontend_health
+  ignore_errors: yes
+
+- name: Set health status flag
+  set_fact:
+    green_is_healthy: "{{ backend_health.status==200 and frontend_health.status==200 }}"
+  

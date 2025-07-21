@@ -1,0 +1,35 @@
+ARG BRANCH=main
+ARG VITE_BACKEND_URL
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Install git
+RUN apk add --no-cache git
+
+#Use blob and sparse to clone just targer dir, as sparse clone entire repo
+RUN git clone --filter=blob:none --sparse --depth=1 --single-branch --branch ${BRANCH} https://github.com/lin001234/your-repo.git . && \
+    git sparse-checkout set app/frontend
+
+WORKDIR /app/frontend
+# Instal dependencies
+RUN npm ci
+
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+
+RUN  npm run build
+
+# Stage 2: Production stage with NGINX
+FROM nginx:alpine AS prod
+
+# Copy built files from the builder stage
+COPY --from=builder /app/frontend/dist /usr/share/nginx/html
+
+# Copy custom NGINX config (set to listen on 5173)
+COPY default.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 5173 (matching your app's port)
+EXPOSE 80
+
+# Start NGINX in foreground
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,57 @@
+---
+- name: Start and enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: yes
+    
+- name: Stop green containers
+  command: docker compose -f docker-compose.canary.yml stop green-backend green-frontend
+  args:
+    chdir: "/home/{{ansible_user}}/ci"
+
+- name: Remove green containers
+  command: docker compose -f docker-compose.canary.yml rm -f -v green-backend green-frontend
+  args:
+    chdir: "/home/{{ansible_user}}/ci"
+
+- name: Rebuild green containers image
+  command: docker compose -f docker-compose.canary.yml build green-backend green-frontend
+  args:
+    chdir: "/home/{{ansible_user}}/ci"
+
+- name: Run docker application in background
+  command: docker compose -f docker-compose.canary.yml up -d green-backend green-frontend
+  args:
+    chdir: "/home/{{ansible_user}}/ci"
+
+- name: Wait for services to be active
+  pause:
+    seconds: 5
+
+- name: Generate nginx.conf with green color
+  template:
+    src: templates/nginx.conf.j2
+    dest: /home/{{ansible_user}}/nginx.conf
+  vars:
+    color: "green"
+
+- name: Reload nginx config with green color
+  command: docker exec nginx-proxy nginx -s reload
+
+- name: Perform health check for green
+  include_tasks: health_check.yml
+
+- name: Generate nginx.conf with blue color
+  template:
+    src: templates/nginx.conf.j2
+    dest: /home/{{ansible_user}}/nginx.conf
+  vars:
+    color: "blue"
+  when: not green_is_healthy
+
+- name: Reload nginx config with blue color
+  command: docker exec nginx-proxy nginx -s reload
+  when: not green_is_healthy
+
+
